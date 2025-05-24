@@ -1,0 +1,158 @@
+C51 COMPILER V9.59.0.0   MPU6056                                                           05/23/2025 13:31:19 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE MPU6056
+OBJECT MODULE PLACED IN .\Objects\mpu6056.obj
+COMPILER INVOKED BY: D:\RoboMaster\SoftWare\MDK537\C51\BIN\C51.EXE mpu6056.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECT
+                    -EXTEND PRINT(.\Listings\mpu6056.lst) OBJECT(.\Objects\mpu6056.obj)
+
+line level    source
+
+   1          #include "mpu6050.h"
+   2          #include <reg52.h>
+   3          
+   4          // I2C初始化
+   5          void I2C_Init()
+   6          {
+   7   1          SCL = 1;
+   8   1          SDA = 1;
+   9   1      }
+  10          
+  11          // I2C起始信号
+  12          void I2C_Start()
+  13          {
+  14   1          SDA = 1;
+  15   1          SCL = 1;
+  16   1          _nop_(); _nop_();
+  17   1          SDA = 0;
+  18   1          _nop_(); _nop_();
+  19   1          SCL = 0;
+  20   1      }
+  21          
+  22          // I2C停止信号
+  23          void I2C_Stop()
+  24          {
+  25   1          SDA = 0;
+  26   1          SCL = 1;
+  27   1          _nop_(); _nop_();
+  28   1          SDA = 1;
+  29   1          _nop_(); _nop_();
+  30   1      }
+  31          
+  32          // I2C写一个字节
+  33          bit I2C_Write(uchar dat)
+  34          {
+  35   1          uchar i;
+  36   1          bit ack;
+  37   1          
+  38   1          for(i=0; i<8; i++)
+  39   1          {
+  40   2              SDA = (dat & 0x80) ? 1 : 0;
+  41   2              SCL = 1;
+  42   2              _nop_(); _nop_();
+  43   2              SCL = 0;
+  44   2              dat <<= 1;
+  45   2          }
+  46   1          
+  47   1          SDA = 1;
+  48   1          SCL = 1;
+  49   1          _nop_(); _nop_();
+  50   1          ack = SDA;
+  51   1          SCL = 0;
+  52   1          
+  53   1          return ack;
+  54   1      }
+C51 COMPILER V9.59.0.0   MPU6056                                                           05/23/2025 13:31:19 PAGE 2   
+
+  55          
+  56          // I2C读一个字节
+  57          uchar I2C_Read(bit ack)
+  58          {
+  59   1          uchar i, dat = 0;
+  60   1          
+  61   1          SDA = 1;
+  62   1          for(i=0; i<8; i++)
+  63   1          {
+  64   2              SCL = 1;
+  65   2              _nop_(); _nop_();
+  66   2              dat <<= 1;
+  67   2              if(SDA) dat |= 0x01;
+  68   2              SCL = 0;
+  69   2              _nop_(); _nop_();
+  70   2          }
+  71   1          
+  72   1          SDA = ack ? 0 : 1;
+  73   1          SCL = 1;
+  74   1          _nop_(); _nop_();
+  75   1          SCL = 0;
+  76   1          
+  77   1          return dat;
+  78   1      }
+  79          
+  80          // MPU6050初始化
+  81          void MPU6050_Init()
+  82          {
+  83   1          MPU6050_WriteReg(PWR_MGMT_1, 0x00); // 解除休眠状态
+  84   1          MPU6050_WriteReg(SMPLRT_DIV, 0x07); // 采样率分频
+  85   1          MPU6050_WriteReg(CONFIG, 0x06);     // 低通滤波
+  86   1          MPU6050_WriteReg(GYRO_CONFIG, 0x18); // 陀螺仪±2000dps
+  87   1          MPU6050_WriteReg(ACCEL_CONFIG, 0x18); // 加速度计±16g
+  88   1      }
+  89          
+  90          // 写MPU6050寄存器
+  91          void MPU6050_WriteReg(uchar reg_addr, uchar reg_data)
+  92          {
+  93   1          I2C_Start();
+  94   1          I2C_Write(MPU6050_ADDR);
+  95   1          I2C_Write(reg_addr);
+  96   1          I2C_Write(reg_data);
+  97   1          I2C_Stop();
+  98   1      }
+  99          
+ 100          // 读MPU6050寄存器
+ 101          uchar MPU6050_ReadReg(uchar reg_addr)
+ 102          {
+ 103   1          uchar reg_data;
+ 104   1          
+ 105   1          I2C_Start();
+ 106   1          I2C_Write(MPU6050_ADDR);
+ 107   1          I2C_Write(reg_addr);
+ 108   1          
+ 109   1          I2C_Start();
+ 110   1          I2C_Write(MPU6050_ADDR | 0x01);
+ 111   1          reg_data = I2C_Read(0);
+ 112   1          I2C_Stop();
+ 113   1          
+ 114   1          return reg_data;
+ 115   1      }
+ 116          
+C51 COMPILER V9.59.0.0   MPU6056                                                           05/23/2025 13:31:19 PAGE 3   
+
+ 117          // 读取MPU6050数据
+ 118          void MPU6050_ReadData(short *acc_x, short *acc_y, short *acc_z, 
+ 119                                short *gyro_x, short *gyro_y, short *gyro_z, short *temp)
+ 120          {
+ 121   1          *acc_x = MPU6050_ReadReg(ACCEL_XOUT_H) << 8 | MPU6050_ReadReg(ACCEL_XOUT_L);
+ 122   1          *acc_y = MPU6050_ReadReg(ACCEL_YOUT_H) << 8 | MPU6050_ReadReg(ACCEL_YOUT_L);
+ 123   1          *acc_z = MPU6050_ReadReg(ACCEL_ZOUT_H) << 8 | MPU6050_ReadReg(ACCEL_ZOUT_L);
+ 124   1          
+ 125   1          *temp = MPU6050_ReadReg(TEMP_OUT_H) << 8 | MPU6050_ReadReg(TEMP_OUT_L);
+ 126   1          
+ 127   1          *gyro_x = MPU6050_ReadReg(GYRO_XOUT_H) << 8 | MPU6050_ReadReg(GYRO_XOUT_L);
+ 128   1          *gyro_y = MPU6050_ReadReg(GYRO_YOUT_H) << 8 | MPU6050_ReadReg(GYRO_YOUT_L);
+ 129   1          *gyro_z = MPU6050_ReadReg(GYRO_ZOUT_H) << 8 | MPU6050_ReadReg(GYRO_ZOUT_L);
+ 130   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    451    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      21
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       2
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

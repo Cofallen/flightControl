@@ -1,0 +1,201 @@
+C51 COMPILER V9.59.0.0   FC                                                                05/23/2025 13:52:37 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE FC
+OBJECT MODULE PLACED IN .\Objects\fc.obj
+COMPILER INVOKED BY: D:\RoboMaster\SoftWare\MDK537\C51\BIN\C51.EXE fc.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEN
+                    -D PRINT(.\Listings\fc.lst) OBJECT(.\Objects\fc.obj)
+
+line level    source
+
+   1          
+   2          #include "fc.h"
+   3          #include "bluebooth.h"
+   4          #include <math.h>
+   5          #include <stdio.h>
+   6          
+   7          float acc_roll, acc_pitch, gyro_roll_rate, gyro_pitch_rate, gyro_yaw_rate;
+   8          float base_throttle;
+   9          // char buffer[50];
+  10          
+  11          // 飞控数据实例
+  12          FlightControl_t fc;
+  13          
+  14          // 补充函数声明
+  15          float Complementary_Filter(float acc_angle, float gyro_rate, float dt, float prev_angle);
+  16          
+  17          // 初始化飞控系统
+  18          void FlightControl_Init(void)
+  19          {
+  20   1          // 初始化MPU6050
+  21   1          I2C_Init();
+  22   1          MPU6050_Init();
+  23   1          
+  24   1          // 初始化电机
+  25   1          Motor_Init();
+  26   1          
+  27   1          // 初始化PID控制器
+  28   1          PID_Init(&fc.pid_roll, 3.5, 0.01, 2.0, -300, 300);   // 横滚PID
+  29   1          PID_Init(&fc.pid_pitch, 3.5, 0.01, 2.0, -300, 300);  // 俯仰PID
+  30   1          PID_Init(&fc.pid_yaw, 4.0, 0.02, 0.0, -300, 300);    // 偏航PID
+  31   1          
+  32   1          // 初始化目标姿态
+  33   1          fc.target.roll = 0.0f;
+  34   1          fc.target.pitch = 0.0f;
+  35   1          fc.target.yaw = 0.0f;
+  36   1          fc.throttle = 0.0f;
+  37   1          
+  38   1          // 默认上锁状态
+  39   1          fc.armed = 0;
+  40   1      }
+  41          
+  42          // 设置目标姿态
+  43          void FlightControl_SetTarget(float roll, float pitch, float yaw, float throttle)
+  44          {
+  45   1          fc.target.roll = roll;
+  46   1          fc.target.pitch = pitch;
+  47   1          fc.target.yaw = yaw;
+  48   1          fc.throttle = throttle;
+  49   1      }
+  50          
+  51          // 更新当前姿态（从MPU6050读取）
+  52          void FlightControl_UpdateAttitude(void)
+  53          {
+  54   1          short acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z, temp;
+C51 COMPILER V9.59.0.0   FC                                                                05/23/2025 13:52:37 PAGE 2   
+
+  55   1          static float prev_roll = 0, prev_pitch = 0, prev_yaw = 0;
+  56   1          float dt = 0.01f;  // 假设控制周期为10ms
+  57   1          
+  58   1          // 从MPU6050读取数据
+  59   1          MPU6050_ReadData(&acc_x, &acc_y, &acc_z, &gyro_x, &gyro_y, &gyro_z, &temp);
+  60   1          
+  61   1          // 根据加速度计计算角度
+  62   1          acc_roll = atan2(acc_y, acc_z) * 57.3f;  // 弧度转角度
+  63   1          acc_pitch = atan2(-acc_x, sqrt(acc_y * acc_y + acc_z * acc_z)) * 57.3f;
+  64   1          
+  65   1          // 根据陀螺仪计算角速度
+  66   1          gyro_roll_rate = gyro_x / 16.4f;   // 根据量程±2000dps转换
+  67   1          gyro_pitch_rate = gyro_y / 16.4f;
+  68   1          gyro_yaw_rate = gyro_z / 16.4f;
+  69   1          
+  70   1          // 使用互补滤波融合数据
+  71   1          fc.current.roll = Complementary_Filter(acc_roll, gyro_roll_rate, dt, prev_roll);
+  72   1          fc.current.pitch = Complementary_Filter(acc_pitch, gyro_pitch_rate, dt, prev_pitch);
+  73   1          fc.current.yaw += gyro_yaw_rate * dt;  // 偏航角主要依靠陀螺仪积分
+  74   1          
+  75   1          // 更新前一次的角度值
+  76   1          prev_roll = fc.current.roll;
+  77   1          prev_pitch = fc.current.pitch;
+  78   1          prev_yaw = fc.current.yaw;
+  79   1      }
+  80          
+  81          // 互补滤波器
+  82          float Complementary_Filter(float acc_angle, float gyro_rate, float dt, float prev_angle)
+  83          {
+  84   1          float alpha = 0.98f;
+  85   1          return alpha * (prev_angle + gyro_rate * dt) + (1.0f - alpha) * acc_angle;
+  86   1      }
+  87          
+  88          // 计算电机输出值
+  89          void FlightControl_CalculateOutput(void)
+  90          {
+  91   1          float roll_output, pitch_output, yaw_output;
+  92   1          uint motor1_output, motor2_output, motor3_output, motor4_output;
+  93   1          
+  94   1          // 如果未解锁，电机输出为0
+  95   1          if(!fc.armed)
+  96   1          {
+  97   2              Motor_SetSpeed(1, 0);
+  98   2              Motor_SetSpeed(2, 0);
+  99   2              Motor_SetSpeed(3, 0);
+ 100   2              Motor_SetSpeed(4, 0);
+ 101   2              return;
+ 102   2          }
+ 103   1          
+ 104   1          // 计算PID输出
+ 105   1          roll_output = PID_Compute(&fc.pid_roll, fc.target.roll, fc.current.roll);
+ 106   1          pitch_output = PID_Compute(&fc.pid_pitch, fc.target.pitch, fc.current.pitch);
+ 107   1          yaw_output = PID_Compute(&fc.pid_yaw, fc.target.yaw, fc.current.yaw);
+ 108   1          
+ 109   1          // 基础油门值
+ 110   1          base_throttle = fc.throttle * 10.0f;  // 假设油门范围0-100，转换到0-1000
+ 111   1          
+ 112   1          // 计算每个电机的输出
+ 113   1          // M1: 右前 (+pitch, -roll, -yaw)
+ 114   1          motor1_output = (uint)(base_throttle + pitch_output - roll_output - yaw_output);
+ 115   1          
+ 116   1          // M2: 左前 (+pitch, +roll, +yaw)
+C51 COMPILER V9.59.0.0   FC                                                                05/23/2025 13:52:37 PAGE 3   
+
+ 117   1          motor2_output = (uint)(base_throttle + pitch_output + roll_output + yaw_output);
+ 118   1          
+ 119   1          // M3: 左后 (-pitch, +roll, -yaw)
+ 120   1          motor3_output = (uint)(base_throttle - pitch_output + roll_output - yaw_output);
+ 121   1          
+ 122   1          // M4: 右后 (-pitch, -roll, +yaw)
+ 123   1          motor4_output = (uint)(base_throttle - pitch_output - roll_output + yaw_output);
+ 124   1          
+ 125   1          // 确保输出值在合理范围内
+ 126   1          if(motor1_output < 0) motor1_output = 0;
+ 127   1          if(motor2_output < 0) motor2_output = 0;
+ 128   1          if(motor3_output < 0) motor3_output = 0;
+ 129   1          if(motor4_output < 0) motor4_output = 0;
+ 130   1          
+ 131   1          if(motor1_output > 1000) motor1_output = 1000;
+ 132   1          if(motor2_output > 1000) motor2_output = 1000;
+ 133   1          if(motor3_output > 1000) motor3_output = 1000;
+ 134   1          if(motor4_output > 1000) motor4_output = 1000;
+ 135   1          
+ 136   1          // 设置电机速度
+ 137   1          Motor_SetSpeed(1, motor1_output);
+ 138   1          Motor_SetSpeed(2, motor2_output);
+ 139   1          Motor_SetSpeed(3, motor3_output);
+ 140   1          Motor_SetSpeed(4, motor4_output);
+ 141   1          
+ 142   1          // 通过蓝牙发送状态信息
+ 143   1          // sprintf(buffer, "R:%.1f P:%.1f Y:%.1f T:%.1f\r\n", 
+ 144   1          //         fc.current.roll, fc.current.pitch, fc.current.yaw, fc.throttle);
+ 145   1          // Bluetooth_SendString(buffer);
+ 146   1      }
+ 147          
+ 148          // 解锁/上锁
+ 149          void FlightControl_Arm(unsigned char armed)
+ 150          {
+ 151   1          fc.armed = armed;
+ 152   1          if(!armed)
+ 153   1          {
+ 154   2              Motor_SetSpeed(1, 0);
+ 155   2              Motor_SetSpeed(2, 0);
+ 156   2              Motor_SetSpeed(3, 0);
+ 157   2              Motor_SetSpeed(4, 0);
+ 158   2          }
+ 159   1      }
+ 160          
+ 161          // 紧急停止
+ 162          void FlightControl_EmergencyStop(void)
+ 163          {
+ 164   1          fc.armed = 0;
+ 165   1          Motor_EmergencyStop();
+ 166   1          
+ 167   1          // 重置PID状态
+ 168   1          PID_Reset(&fc.pid_roll);
+ 169   1          PID_Reset(&fc.pid_pitch);
+ 170   1          PID_Reset(&fc.pid_yaw);
+ 171   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1835    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    185      74
+   PDATA SIZE       =   ----    ----
+C51 COMPILER V9.59.0.0   FC                                                                05/23/2025 13:52:37 PAGE 4   
+
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

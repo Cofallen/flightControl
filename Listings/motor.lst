@@ -1,0 +1,101 @@
+C51 COMPILER V9.59.0.0   MOTOR                                                             05/23/2025 13:52:37 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE MOTOR
+OBJECT MODULE PLACED IN .\Objects\motor.obj
+COMPILER INVOKED BY: D:\RoboMaster\SoftWare\MDK537\C51\BIN\C51.EXE motor.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEX
+                    -TEND PRINT(.\Listings\motor.lst) OBJECT(.\Objects\motor.obj)
+
+line level    source
+
+   1          
+   2          #include "motor.h"
+   3          
+   4          // PWM周期计数器
+   5          static uint pwm_counter = 0;
+   6          // 每个电机的PWM值（0-1000）
+   7          static uint motor1_speed = 0;
+   8          static uint motor2_speed = 0;
+   9          static uint motor3_speed = 0;
+  10          static uint motor4_speed = 0;
+  11          
+  12          // 初始化电机
+  13          void Motor_Init(void)
+  14          {
+  15   1          // 初始化电机引脚为输出
+  16   1          MOTOR1 = 0;
+  17   1          MOTOR2 = 0;
+  18   1          MOTOR3 = 0;
+  19   1          MOTOR4 = 0;
+  20   1          
+  21   1          // 设置定时器0用于PWM生成
+  22   1          TMOD |= 0x01;    // 16位定时器模式
+  23   1          TH0 = 0xFF;      // 设置较短的溢出时间用于PWM
+  24   1          TL0 = 0xD0;      // 大约100us的定时
+  25   1          ET0 = 1;         // 允许定时器0中断
+  26   1          TR0 = 1;         // 启动定时器0
+  27   1      }
+  28          
+  29          // 设置电机PWM占空比 (speed: 0-1000)
+  30          void Motor_SetSpeed(uchar motor_id, uint speed)
+  31          {
+  32   1          // 限制speed范围为0-1000
+  33   1          if(speed > 1000) speed = 1000;
+  34   1          
+  35   1          // 设置对应电机的速度
+  36   1          switch(motor_id)
+  37   1          {
+  38   2              case 1: motor1_speed = speed; break;
+  39   2              case 2: motor2_speed = speed; break;
+  40   2              case 3: motor3_speed = speed; break;
+  41   2              case 4: motor4_speed = speed; break;
+  42   2              default: break;
+  43   2          }
+  44   1      }
+  45          
+  46          // 紧急停止所有电机
+  47          void Motor_EmergencyStop(void)
+  48          {
+  49   1          motor1_speed = 0;
+  50   1          motor2_speed = 0;
+  51   1          motor3_speed = 0;
+  52   1          motor4_speed = 0;
+  53   1          
+  54   1          MOTOR1 = 0;
+C51 COMPILER V9.59.0.0   MOTOR                                                             05/23/2025 13:52:37 PAGE 2   
+
+  55   1          MOTOR2 = 0;
+  56   1          MOTOR3 = 0;
+  57   1          MOTOR4 = 0;
+  58   1      }
+  59          
+  60          // PWM生成函数，在定时器0中断中调用
+  61          void Motor_PWM_Update(void)
+  62          {
+  63   1          // PWM计数器递增
+  64   1          pwm_counter++;
+  65   1          if(pwm_counter >= 1000)
+  66   1          {
+  67   2              pwm_counter = 0;
+  68   2          }
+  69   1          
+  70   1          // 根据计数器值和设定的速度来控制电机引脚
+  71   1          MOTOR1 = (pwm_counter < motor1_speed) ? 1 : 0;
+  72   1          MOTOR2 = (pwm_counter < motor2_speed) ? 1 : 0;
+  73   1          MOTOR3 = (pwm_counter < motor3_speed) ? 1 : 0;
+  74   1          MOTOR4 = (pwm_counter < motor4_speed) ? 1 : 0;
+  75   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    236    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     10    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

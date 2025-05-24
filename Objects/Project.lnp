@@ -1,0 +1,9 @@
+".\Objects\STARTUP.obj",
+".\Objects\main.obj",
+".\Objects\mpu6056.obj",
+".\Objects\bluebooth.obj",
+".\Objects\fc.obj",
+".\Objects\motor.obj",
+".\Objects\pid.obj" 
+TO ".\Objects\Project" 
+PRINT(".\Listings\Project.m51") RAMSIZE(256) 

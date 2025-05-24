@@ -1,0 +1,110 @@
+{
+  "name": "Project",
+  "type": "C51",
+  "dependenceList": [],
+  "srcDirs": [],
+  "virtualFolder": {
+    "name": "<virtual_root>",
+    "files": [],
+    "folders": [
+      {
+        "name": "Source Group 1",
+        "files": [
+          {
+            "path": "../STARTUP.A51"
+          },
+          {
+            "path": "../main.c"
+          },
+          {
+            "path": "../mpu6056.c"
+          },
+          {
+            "path": "../mpu6050.h"
+          },
+          {
+            "path": "../bluebooth.c"
+          },
+          {
+            "path": "../bluebooth.h"
+          },
+          {
+            "path": "../pid.c"
+          },
+          {
+            "path": "../pid.h"
+          },
+          {
+            "path": "../fc.c"
+          },
+          {
+            "path": "../fc.h"
+          },
+          {
+            "path": "../main.h"
+          },
+          {
+            "path": "../motor.c"
+          },
+          {
+            "path": "../motor.h"
+          }
+        ],
+        "folders": []
+      }
+    ]
+  },
+  "outDir": "build",
+  "deviceName": null,
+  "packDir": null,
+  "miscInfo": {
+    "uid": "0b4d069c014b58ea063ddb38973339d4"
+  },
+  "targets": {
+    "Target_1": {
+      "excludeList": [],
+      "toolchain": "Keil_C51",
+      "compileConfig": {
+        "options": "null"
+      },
+      "uploader": "Custom",
+      "uploadConfig": {
+        "bin": "",
+        "commandLine": "",
+        "eraseChipCommand": ""
+      },
+      "uploadConfigMap": {},
+      "custom_dep": {
+        "name": "default",
+        "incList": [
+          "D:/RoboMaster/SoftWare/MDK537/C51/INC/STC",
+          ".."
+        ],
+        "libList": [],
+        "defineList": []
+      },
+      "builderOptions": {
+        "Keil_C51": {
+          "version": 2,
+          "beforeBuildTasks": [],
+          "afterBuildTasks": [],
+          "global": {
+            "ram-mode": "LARGE",
+            "rom-mode": "LARGE"
+          },
+          "c/cpp-compiler": {
+            "optimization-type": "SPEED",
+            "optimization-level": "level-8"
+          },
+          "asm-compiler": {},
+          "linker": {
+            "remove-unused": true,
+            "output-format": "elf",
+            "misc-controls": ""
+          }
+        }
+      }
+    }
+  },
+  "version": "3.5"
+}
