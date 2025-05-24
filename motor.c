@@ -17,13 +17,6 @@ void Motor_Init(void)
     MOTOR2 = 0;
     MOTOR3 = 0;
     MOTOR4 = 0;
-    
-    // 设置定时器0用于PWM生成
-    TMOD |= 0x01;    // 16位定时器模式
-    TH0 = 0xFF;      // 设置较短的溢出时间用于PWM
-    TL0 = 0xD0;      // 大约100us的定时
-    ET0 = 1;         // 允许定时器0中断
-    TR0 = 1;         // 启动定时器0
 }
 
 // 设置电机PWM占空比 (speed: 0-1000)

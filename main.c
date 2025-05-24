@@ -7,25 +7,20 @@
 #include "main.h"
 #include "STRING.H"
 
-#define BUFFER_SIZE 35
+#define BUFFER_SIZE 15
 
 sbit LED1=P0^1;
 sbit LED2=P0^2;
 sbit LED3=P0^3;
-sbit M1=P1^0;
-sbit M2=P1^1;
-sbit M3=P1^2;
-sbit M4=P1^3;
 
 int roll, pitch, yaw;
 
-MPU6050_Data_t mpu6050_data;
-char buffer[BUFFER_SIZE];  // 将buffer定义为全局变量，以便在中断中使用
+char buffer[BUFFER_SIZE];  // 
 bit dataReady = 0;         // 数据就绪标志
-// 定时器计数，每100ms处理一次数据
+// 定时器计数
 int msTick = 0;
-int   counter = 0;
-// 定时器0初始化函数，1ms中断一次
+int counter = 0;
+// 定时器0初始化函数
 void Timer0_Init(void)
 {
     TMOD &= 0xF0;    // 清零T0的控制位
@@ -44,11 +39,9 @@ void Timer0_Init(void)
 
 void main()
 {
-    I2C_Init();
-    MPU6050_Init();
-
-    M1=0;M2=0;M3=0;M4=0;LED2=0;LED3=0;LED1=0;
-    // 蓝牙模块可能需要初始化时间
+    FlightControl_Init();
+    LED2=0;LED3=0;LED1=0;
+    // 蓝牙模块需要初始化时间
     Delay_ms(1000);
     MPU6050_CalibrateInit();
     Delay_ms(100);
@@ -64,12 +57,9 @@ void main()
         {
             Bluetooth_SendString(buffer);
             dataReady = 0;  // 清除就绪标志
-        }
+            LED2 = !LED2;  // 切换LED状态
 
-        // 添加定时主循环测试发送
-        Bluetooth_SendString("Main loop test");
-        Delay_ms(1000);  // 每秒发送一次
-        LED2 = !LED2;  // 切换LED状态
+        }
     }
 }
 
@@ -77,12 +67,12 @@ void main()
 void Timer0_ISR(void) interrupt 1
 {
     // 重新加载定时器初值
-    TH0 = (65536-1000) / 256;    // 0xFC
-    TL0 = (65536-1000) % 256;    // 0x18
+    TH0 = (65536-917) / 256;    // 0xFC
+    TL0 = (65536-917) % 256;    // 0x18
 
     msTick++;
     
-    if(msTick >= 100)  // 每100ms处理一次数据
+    if(msTick >= 50)  // 每50ms处理一次数据 // 实际为 0.098s
     {
         msTick = 0;
         
@@ -95,7 +85,7 @@ void Timer0_ISR(void) interrupt 1
         yaw = (int)(mpu6050_data.yaw);
         
         // 准备发送数据
-        sprintf(buffer, "roll: %d, pitch: %d, yaw: %d\r\n", roll, pitch, yaw);
+        sprintf(buffer, "r: %d, p: %d, y: %d", roll, pitch, yaw);
         dataReady = 1;  // 设置数据就绪标志
         LED1 = !LED1;  // 切换LED状态
     }

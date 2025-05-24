@@ -16,7 +16,7 @@ typedef struct {
 // 飞控数据结构体
 typedef struct {
     Attitude_t target;    // 目标姿态
-    Attitude_t current;   // 当前姿态
+    // Attitude_t current;   // 当前姿态
 } FC_Attitude_t;
 
 typedef struct {
@@ -34,6 +34,8 @@ typedef struct {
 extern FC_Attitude_t fc_attitude;
 extern FC_PID_t fc_pid;
 extern FC_Control_t fc_control;
+
+extern MPU6050_Data_t mpu6050_data;
 
 // 初始化飞控系统
 void FlightControl_Init(void);
