@@ -3,6 +3,7 @@
 // 串口初始化(蓝牙通信)
 void UART_Init()
 {
+    TMOD &= 0x0F;
     TMOD |= 0x20;    // 定时器1工作方式2
     TH1 = 0xFD;     // 波特率9600
     TL1 = 0xFD;
