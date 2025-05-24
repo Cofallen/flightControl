@@ -16,7 +16,6 @@ sbit M2=P1^1;
 sbit M3=P1^2;
 sbit M4=P1^3;
 
-int i;
 int roll, pitch, yaw;
 
 MPU6050_Data_t mpu6050_data;
@@ -32,6 +31,8 @@ void main()
     M1=0;M2=0;M3=0;M4=0;LED2=0;
     // 蓝牙模块可能需要初始 化时间
     Delay_ms(1000);
+    MPU6050_CalibrateInit();
+    Delay_ms(100);
     Bluetooth_SendString("MPU6050 Data Ready (with Complementary Filter)\r\n");
     while(1)
     {
@@ -42,6 +43,9 @@ void main()
         roll = (int)(mpu6050_data.roll);
         pitch = (int)(mpu6050_data.pitch);
         yaw = (int)(mpu6050_data.yaw);
+        // roll =(int) gyro_offset[0];
+        // pitch = (int)gyro_offset[1];
+        // yaw = (int)gyro_offset[2];
         sprintf(buffer, "roll: %d, pitch: %d, yaw: %d"
                 , roll, pitch, yaw);
         Bluetooth_SendString(buffer);
@@ -54,3 +58,4 @@ void main()
         Delay_ms(100); // 100ms刷新一次（dt = 0.1s）
     }
 }
+

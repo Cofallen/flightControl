@@ -50,6 +50,7 @@ typedef struct MPU6050_Data_t
     float yaw;   // Æ«º½½Ç
 } MPU6050_Data_t;
 
+extern float gyro_offset[3];
 // º¯ÊýÉùÃ÷
 void I2C_Init();
 void I2C_Start();
@@ -65,5 +66,7 @@ void UART_SendByte(uchar dat);
 void UART_SendString(char *s);
 void Delay_ms(uint ms);
 void IMUupdate(float gx, float gy, float gz, float ax, float ay, float az);
-
+void MPU6050_Calibrate(short *acc_x, short *acc_y, short *acc_z, 
+    short *gyro_x, short *gyro_y, short *gyro_z);
+void MPU6050_CalibrateInit();
 #endif

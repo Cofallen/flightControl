@@ -5,10 +5,8 @@
 
 #define PI 3.14159265358979323846
 
-// 假设MPU6050加速度计量程为±2g，灵敏度16384 LSB/g
-#define ACCEL_SCALE 2048.0f
-// 假设陀螺仪量程为±250dps，灵敏度131 LSB/(dps)
-#define GYRO_SCALE 16.4f
+#define ACCEL_SCALE  2048.0f   // ±16g → 2048 LSB/g
+#define GYRO_SCALE   16.4f     // ±2000dps → 16.4 LSB/(°/s)
 
 float acc_roll, acc_pitch, gyro_roll_rate, gyro_pitch_rate, gyro_yaw_rate;
 float base_throttle;
@@ -59,51 +57,49 @@ float Complementary_Filter(float acc_angle, float gyro_rate, float dt, float pre
 // 更新当前姿态（从MPU6050读取）
 void FlightControl_UpdateAttitude(MPU6050_Data_t *mpuData)
 {
-    // static float prev_roll = 0, prev_pitch = 0, prev_yaw = 0;
     float ax, ay, az;
     // 从MPU6050读取数据
     MPU6050_ReadData(&mpuData->acc_x, &mpuData->acc_y, &mpuData->acc_z, &mpuData->gyro_x, &mpuData->gyro_y, &mpuData->gyro_z, &mpuData->temp);
-    
+    MPU6050_Calibrate(&mpuData->acc_x, &mpuData->acc_y, &mpuData->acc_z, &mpuData->gyro_x, &mpuData->gyro_y, &mpuData->gyro_z);
     // 转换为物理单位
      ax = mpuData->acc_x / ACCEL_SCALE; // 加速度 (g)
      ay = mpuData->acc_y / ACCEL_SCALE;
      az = mpuData->acc_z / ACCEL_SCALE;
 
-      // 计算俯仰角和横滚角（单位：度）
-    mpuData->pitch = atan2(ay, sqrt(ax*ax + az*az)) * 180.0 / PI;
-    mpuData->roll  = atan2(-ax, sqrt(ay*ay + az*az)) * 180.0 / PI;
-    mpuData->yaw  += mpuData->gyro_z / GYRO_SCALE; // 偏航角（单位：度）
-    // // // 根据加速度计计算角度
-    // // acc_roll = atan2(acc_y, acc_z) * 57.3f;  // 弧度转角度
-    // // acc_pitch = atan2(-acc_x, sqrt(acc_y * acc_y + acc_z * acc_z)) * 57.3f;
+    // 计算俯仰角和横滚角（单位：度）
+    mpuData->pitch = atan2(ay, sqrt(ax*ax + az*az)) * 180.0 / PI * 1.01f;
+    mpuData->roll  = atan2(-ax, sqrt(ay*ay + az*az)) * 180.0 / PI * 1.01f;
+    mpuData->yaw  += mpuData->gyro_z / GYRO_SCALE * 0.1f * 1.607f; // 偏航角（单位：度）
+    // 保持角度在 -180° 到 +180° 范围内
+    if (mpuData->yaw > 180.0f) mpuData->yaw -= 360.0f;
+    else if (mpuData->yaw < -180.0f) mpuData->yaw += 360.0f;
     
-    // // 根据陀螺仪计算角速度
-    // gyro_roll_rate = mpuData->raw.gyro_x / GYRO_SCALE;   // 根据量程±2000dps转换
-    // gyro_pitch_rate = mpuData->raw.gyro_y / GYRO_SCALE;
-    // gyro_yaw_rate = mpuData->raw.gyro_z / GYRO_SCALE;
-    
+    #ifdef MULTIPLY_INTERVAL
+    // 请把上面的更新欧拉角的参数对应换成acc_pitch和acc_roll 把mpuData->yaw注释
+    // 目前融合起来 飘的严重
+    // 根据陀螺仪计算角速度
+    static float prev_roll = 0, prev_pitch = 0, prev_yaw = 0;
+    gyro_roll_rate = mpuData->gyro_x / GYRO_SCALE;   // 根据量程±2000dps转换
+    gyro_pitch_rate = mpuData->gyro_y / GYRO_SCALE;
+    gyro_yaw_rate = mpuData->gyro_z / GYRO_SCALE;
     // // IMUupdate(gyro_roll_rate, gyro_pitch_rate, gyro_yaw_rate, ax, ay, az);
-    // // // 使用互补滤波融合数据
-    // // fc.current.roll = Complementary_Filter(acc_roll, gyro_roll_rate, 1, prev_roll);
-    // // fc.current.pitch = Complementary_Filter(acc_pitch, gyro_pitch_rate, 1, prev_pitch);
-    // // fc.current.yaw += gyro_yaw_rate;  // 偏航角主要依靠陀螺仪积分
-    
-    // fc.current.roll = ax;
-    // fc.current.pitch = ay;
-    // fc.current.yaw = 0;
-
-    // // 更新前一次的角度值
-    // prev_roll = fc.current.roll;
-    // prev_pitch = fc.current.pitch;
-    // prev_yaw = fc.current.yaw;
+    // 使用互补滤波融合数据
+    mpuData->roll = Complementary_Filter(acc_roll, gyro_roll_rate, 0.1, prev_roll);
+    mpuData->pitch = Complementary_Filter(acc_pitch, gyro_pitch_rate, 0.1, prev_pitch);
+    mpuData->yaw += gyro_yaw_rate * 0.1f * 1.44f;  // 偏航角主要依靠陀螺仪积分
+    // 更新前一次的角度值
+    prev_roll = mpuData->roll;
+    prev_pitch = mpuData->pitch;
+    prev_yaw = mpuData->yaw;
+    #endif // DEBUG
 }
 
-// // 互补滤波器
-// float Complementary_Filter(float acc_angle, float gyro_rate, float dt, float prev_angle)
-// {
-//     float alpha = 0.98f;
-//     return (alpha * (prev_angle + gyro_rate * dt) + (1.0f - alpha) * acc_angle);
-// }
+// 互补滤波器
+float Complementary_Filter(float acc_angle, float gyro_rate, float dt, float prev_angle)
+{
+    float alpha = 0.98f;
+    return (alpha * (prev_angle + gyro_rate * dt) + (1.0f - alpha) * acc_angle);
+}
 
 // // 计算电机输出值
 // void FlightControl_CalculateOutput(void)

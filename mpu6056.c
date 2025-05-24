@@ -3,13 +3,11 @@
 #include "fc.h"
 #include "MATH.H"
 
-#define X_ACCEL_OFFSET -600 
-#define Y_ACCEL_OFFSET -100 
-#define Z_ACCEL_OFFSET 2900 
-#define X_GYRO_OFFSET 32 
-#define Y_GYRO_OFFSET -11 
-#define Z_GYRO_OFFSET 1 
+#define X_ACCEL_OFFSET 0 
+#define Y_ACCEL_OFFSET 0 
+#define Z_ACCEL_OFFSET 0 
 
+float gyro_offset[3] = {0}; // 陀螺仪Z轴偏置
 // I2C初始化
 void I2C_Init()
 {
@@ -145,11 +143,28 @@ void MPU6050_Calibrate(short *acc_x, short *acc_y, short *acc_z,
     *acc_x += X_ACCEL_OFFSET;
     *acc_y += Y_ACCEL_OFFSET;
     *acc_z += Z_ACCEL_OFFSET;
-    *gyro_x += X_GYRO_OFFSET;
-    *gyro_y += Y_GYRO_OFFSET;
-    *gyro_z += Z_GYRO_OFFSET;
+    *gyro_x -= gyro_offset[0];
+    *gyro_y -= gyro_offset[1];
+    *gyro_z -= gyro_offset[2];
 }
 
+// 上电100次求平均去零飘
+MPU6050_Data_t mpuCalibrate_data;
+void MPU6050_CalibrateInit() {
+    float sum[3] = 0.0f;
+    int j = 0;
+    for (j = 0; j < 100; j++) {
+        MPU6050_ReadData(
+            &mpuCalibrate_data.acc_x, &mpuCalibrate_data.acc_y, &mpuCalibrate_data.acc_z,
+            &mpuCalibrate_data.gyro_x, &mpuCalibrate_data.gyro_y, &mpuCalibrate_data.gyro_z, &mpuCalibrate_data.temp);
+        sum[2] += mpuCalibrate_data.gyro_z;
+        sum[0] += mpuCalibrate_data.acc_x;
+        sum[1] += mpuCalibrate_data.acc_y;
+    }
+    gyro_offset[2] = sum[2] / 100.0f;
+    gyro_offset[0] = sum[0] / 100.0f;
+    gyro_offset[1] = sum[1] / 100.0f;
+}
 // #define Kp 100.0f                        // 比例增益支配率收敛到加速度计/磁强计
 // #define Ki 0.002f                // 积分增益支配率的陀螺仪偏见的衔接
 // #define halfT 0.001f                // 采样周期的一半
