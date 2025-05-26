@@ -26,9 +26,8 @@ void Timer0_Init(void)
     TMOD &= 0xF0;    // 清零T0的控制位
     TMOD |= 0x01;    // 设置T0为模式1(16位定时器)
     
-    // 设置初值，对于12MHz晶振，1ms定时值为65536-1000
-    TH0 = (65536-1000) / 256;    // 高8位 = 0xFC
-    TL0 = (65536-1000) % 256;    // 低8位 = 0x18
+    TH0 = (65536-917) / 256;    // 高8位 = 0xFC
+    TL0 = (65536-917) % 256;    // 低8位 = 0x18
 
     PT0 = 0x10;  // 设置串口中断为高优先级
     PS = 0;  
@@ -60,6 +59,16 @@ void main()
             LED2 = !LED2;  // 切换LED状态
 
         }
+        // Motor_SetSpeed(1, 1000);  // 设置电机1速度为500
+        // Motor_SetSpeed(3, 1000);  // 设置电机1速度为500
+        // Motor_SetSpeed(2, 1000);  // 设置电机2速度为500
+        // Motor_SetSpeed(4, 1000);  // 设置电机2速度为500
+
+        // FlightControl_SetTarget(fc_attitude.target.roll, 
+        //                         fc_attitude.target.pitch, 
+        //                         fc_attitude.target.yaw, 
+        //                         1000);
+        // FlightControl_CalculateOutput();
     }
 }
 
@@ -71,7 +80,8 @@ void Timer0_ISR(void) interrupt 1
     TL0 = (65536-917) % 256;    // 0x18
 
     msTick++;
-    
+    Motor_PWM_Update();  
+
     if(msTick >= 50)  // 每50ms处理一次数据 // 实际为 0.098s
     {
         msTick = 0;

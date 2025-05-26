@@ -7,6 +7,12 @@
 #define uint unsigned int
 
 // 电机引脚定义
+// 蓝牙超前
+// 飞机示意图       blue
+//          | MOTOR1 | MOTOR4 |
+//      <-- |--------|--------|
+//          | MOTOR2 | MOTOR3 |
+
 sbit MOTOR1 = P1^0;  // 右前电机
 sbit MOTOR2 = P1^1;  // 左前电机
 sbit MOTOR3 = P1^2;  // 左后电机
