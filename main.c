@@ -7,15 +7,21 @@
 #include "main.h"
 #include "STRING.H"
 
-#define BUFFER_SIZE 15
+#define BUFFER_SIZE 16
 
 sbit LED1=P0^1;
 sbit LED2=P0^2;
 sbit LED3=P0^3;
 
 int roll, pitch, yaw;
+void vofa_send(float a1, float a2, float a3);
 
-char buffer[BUFFER_SIZE];  // 
+union buffer_t
+{
+    unsigned char DATA[BUFFER_SIZE];  // 数据区
+    float a[3]; // 浮点数数组
+} buffer= {0};
+
 bit dataReady = 0;         // 数据就绪标志
 // 定时器计数
 int msTick = 0;
@@ -54,7 +60,7 @@ void main()
         // 当数据就绪时发送
         if(dataReady)
         {
-            Bluetooth_SendString(buffer);
+            Bluetooth_SendString(buffer.DATA);
             dataReady = 0;  // 清除就绪标志
             LED2 = !LED2;  // 切换LED状态
 
@@ -68,7 +74,9 @@ void main()
         //                         fc_attitude.target.pitch, 
         //                         fc_attitude.target.yaw, 
         //                         1000);
-        // FlightControl_CalculateOutput();
+        FlightControl_CalculateOutput();
+        vofa_send(fc_attitude.target.roll, fc_attitude.target.pitch, fc_attitude.target.yaw);
+        Delay_ms(10);  // 延时10ms
     }
 }
 
@@ -80,7 +88,7 @@ void Timer0_ISR(void) interrupt 1
     TL0 = (65536-917) % 256;    // 0x18
 
     msTick++;
-    Motor_PWM_Update();  
+    // Motor_PWM_Update();  
 
     if(msTick >= 50)  // 每50ms处理一次数据 // 实际为 0.098s
     {
@@ -95,8 +103,43 @@ void Timer0_ISR(void) interrupt 1
         yaw = (int)(mpu6050_data.yaw);
         
         // 准备发送数据
-        sprintf(buffer, "r: %d, p: %d, y: %d", roll, pitch, yaw);
+        sprintf(buffer.DATA, "r: %d, p: %d, y: %d", roll, pitch, yaw);
         dataReady = 1;  // 设置数据就绪标志
         LED1 = !LED1;  // 切换LED状态
     }
+}
+
+
+// ...existing code...
+
+// 声明接收数据变量
+char rxData = 'S';  // 默认值为'S'，表示停止
+
+// 串口中断服务函数
+void UART_ISR(void) interrupt 4
+{
+    // 判断是否为接收中断
+    if(RI)
+    {
+        RI = 0;              // 清除接收中断标志
+        rxData = SBUF;       // 读取接收到的数据
+        
+        ProcessCommand(rxData, &fc_attitude, &fc_control);
+        // 收到数据后LED3闪烁
+        LED3 = !LED3;        // 切换LED3状态
+    }
+}
+
+
+void vofa_send(float a1, float a2, float a3)
+{
+    buffer.a[0] = a1;
+    buffer.a[1] = a2;
+    buffer.a[2] = a3;
+    buffer.DATA[BUFFER_SIZE - 4] = 0X00; 
+    buffer.DATA[BUFFER_SIZE - 3] = 0X00;
+    buffer.DATA[BUFFER_SIZE - 2] = 0X80;
+    buffer.DATA[BUFFER_SIZE - 1] = 0X7f;
+
+    Bluetooth_SendString(buffer.DATA);
 }
